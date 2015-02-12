@@ -35,9 +35,10 @@ Let's have a look at the data:
 ```{r}
 dim(data)
 head(data)
+tail(data)
 ```
 
-So we know we have three variables: the number of steps taken, the day of the measurement and the interval identifier. We can already see that there are a couple of NA's there too. There are a total of 17568 observations.
+So we know we have three variables: the number of steps taken, the day of the measurement and the interval identifier. The interval identifier is actually the hour and minute of the measurement, i.e. 2355 corresponds to 23:55. It is not really necessary to convert this column to a time format, so let's leave it as it is. We can already see that there are a couple of NA's there too. There are a total of 17568 observations.
 
 Let's check what is the class of the date column:
  
@@ -104,19 +105,67 @@ names(activity) <- c("interval", "average_steps")
 Now that we have this data, we can create a line plot of the intervals and the average of number steps taken:
 
 ```{r, fig.height=4}
-qplot(interval, average_steps, data = activity, geom = "line", xlab = "Interval [minutes]", ylab = "Average number of steps taken") + scale_x_continuous(limits = c(0, 2355), breaks = seq(0, 2355, 250))
+qplot(interval, average_steps, data = activity, geom = "line", xlab = "Time of the day", ylab = "Average number of steps taken") + scale_x_continuous(limits = c(0, 2355), breaks = seq(0, 2355, 250))
 ```
 
-From the graph we can alrady see that most steps were taken between the intervals 750 and 1000, but we can calculate the 5-minute interval with the maximum number of steps with the **which.max** function to index the activity data table:
+From the graph we can alrady see that most steps were taken between the intervals 750 and 1000, therefore between 7:50 and 10:00. We can calculate the 5-minute interval with the maximum number of steps with the **which.max** function to index the activity data table:
 
 ```{r}
 activity[which.max(activity$average_steps), ]
 ```
 
-So, in the interval **835** the maximum average_steps of around **206** was measured over all days.
+So, in the interval **835**, which corresponds to 8:35, the maximum average_steps of around **206** was measured over all days.
 
 ## Imputing missing values
 
 As we noticed earlier, there are some missing values (NA's) in this data set. Let's calculate exactly how many rows have missing values:
+
+```{r}
+length(which(is.na(data$steps)))
+```
+
+There are **2304** rows with missing values. Let's do something about that. I would say it makes sense to substitute the NA's with the average of the steps taken from the same 5-minute interval. We have this information already stored in the **activity** data set.
+
+Firstly, we can create another column in the data set which has the average number of steps per day. We can use the **merge** function to merge the **activity** data set to the main data. This will be a new data set:
+
+```{r}
+complete_data <- merge(activity, data, by = "interval")
+head(complete_data)
+```
+
+It looks good, but it seems that the order of the rows has been changed, let's arrange this:
+
+```{r}
+complete_data <- arrange(complete_data, date)
+head(complete_data)
+```
+
+Much better. Now we can substitute the NA's by the average values. There are many ways to do that, but we can simply assign the average steps to the missing values by indexing them:
+
+```{r}
+indices <- is.na(complete_data$steps)
+complete_data$steps[indices] <- complete_data$average_steps[indices]
+head(complete_data)
+length(which(is.na(complete_data$steps)))
+```
+
+So, all NA's were substituted for the average number of steps taken in the same interval over all measured days. Let's see how this affects the calculations that we've made already.
+
+Firstly, we can examine the total number of steps taken each day using an histogram. We can repeat the same calculations made for the second step:
+
+```{r, fig.height=4}
+daily_steps_sum2 <- ddply(complete_data, .(date), function(x) sum(x$steps))
+names(daily_steps_sum2) <- c("date", "total_steps")
+qplot(total_steps, data = daily_steps_sum2, geom = "histogram", xlab = "Steps per day", ylab = "Count", binwidth = 1000) + scale_x_continuous(limits = c(0, 22000))
+```
+
+The difference is quite clear. We can observe that the count for 0 steps has greatly reduced and the frequency for steps around 10,000 has increased. Let's check how our imputing has changed the mean and median values for **all** days:
+
+```{r}
+mean(daily_steps_sum2$total_steps)
+median(daily_steps_sum2$total_steps)
+```
+
+Both the mean and the median value are higher. This was already expected, since by adding the average number of steps for an interval which had before a NA, we are increasing the total number of steps and therefore also increasing the mean. It is interesting to see that the mean is equal to the median in this case.
 
 ## Are there differences in activity patterns between weekdays and weekends?

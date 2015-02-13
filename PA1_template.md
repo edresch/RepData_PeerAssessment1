@@ -8,7 +8,7 @@ Since this is not supposed a CodeBook or a README, the data and variables will n
 
 ## Loading necessary packages
 
-This analysis will require some external packages: **ggplot2**, **plyr**, and **data.table**. Load them with the **library** command.
+This analysis will require some external packages: **ggplot2**, and **plyr**. Load them with the **library** command.
 
 
 ```r
@@ -27,7 +27,7 @@ unzip("activity.zip")
 data <- read.csv("activity.csv")
 ```
 
-Let's have a look at the data:
+Let's have a first look at it:
 
 
 ```r
@@ -100,7 +100,7 @@ class(data$date)
 ## [1] "Date"
 ```
 
-That looks better now. We can move to the next question.
+That looks better now. We can move on to the next question.
 
 ## What is mean total number of steps taken per day?
 
@@ -127,7 +127,7 @@ The data frame *daily_steps_sum* has the sum of steps for each day. We can now u
 
 
 ```r
-qplot(total_steps, data = daily_steps_sum, geom = "histogram", xlab = "Steps per day", ylab = "Count", binwidth = 1000) + scale_x_continuous(limits = c(0, 22000))
+qplot(total_steps, data = daily_steps_sum, geom = "histogram", xlab = "Steps per day", ylab = "Count", binwidth = 1000)
 ```
 
 ![](PA1_template_files/figure-html/unnamed-chunk-7-1.png) 
@@ -202,7 +202,7 @@ Now that we have this data, we can create a line plot of the intervals and the a
 
 
 ```r
-qplot(interval, average_steps, data = activity, geom = "line", xlab = "Time of the day", ylab = "Average number of steps taken") + scale_x_continuous(limits = c(0, 2355), breaks = seq(0, 2355, 250))
+qplot(interval, average_steps, data = activity, geom = "line", xlab = "Time of the day", ylab = "Average number of steps taken") + scale_x_continuous(breaks = seq(0, 2355, 250))
 ```
 
 ![](PA1_template_files/figure-html/unnamed-chunk-11-1.png) 
@@ -219,7 +219,7 @@ activity[which.max(activity$average_steps), ]
 ## 104      835      206.1698
 ```
 
-So, in the interval **835**, which corresponds to 8:35, the maximum average_steps of around **206** was measured over all days.
+So, in the interval **835**, which corresponds to 8:35, the maximum *average_steps of around* **206** steps was measured over all days.
 
 ## Imputing missing values
 
@@ -236,7 +236,7 @@ length(which(is.na(data$steps)))
 
 There are **2304** rows with missing values. Let's do something about that. I would say it makes sense to substitute the NA's with the average of the steps taken from the same 5-minute interval. We have this information already stored in the **activity** data set.
 
-Firstly, we can create another column in the data set which has the average number of steps per day. We can use the **merge** function to merge the **activity** data set to the main data. This will be a new data set:
+Firstly, we can create another column in the data set which has the average number of steps per day. We can use the **merge** function to merge the *activity* data set to the main data. This will be a new data set:
 
 
 ```r
@@ -307,7 +307,7 @@ Firstly, we can examine the total number of steps taken each day using an histog
 ```r
 daily_steps_sum2 <- ddply(complete_data, .(date), function(x) sum(x$steps))
 names(daily_steps_sum2) <- c("date", "total_steps")
-qplot(total_steps, data = daily_steps_sum2, geom = "histogram", xlab = "Steps per day", ylab = "Count", binwidth = 1000) + scale_x_continuous(limits = c(0, 22000))
+qplot(total_steps, data = daily_steps_sum2, geom = "histogram", xlab = "Steps per day", ylab = "Count", binwidth = 1000)
 ```
 
 ![](PA1_template_files/figure-html/unnamed-chunk-17-1.png) 
@@ -331,6 +331,66 @@ median(daily_steps_sum2$total_steps)
 ## [1] 10766.19
 ```
 
-Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
+Both the mean and the median value are higher. This was already expected, since by adding the average number of steps for an interval which had before a NA, we are increasing the total number of steps and therefore also increasing the mean. It is interesting to see that the mean is equal to the median in this case.
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+In order to answer this question we first need to find out which days are weekdays and which are weekends. We can do that by mutating the complete data set and creating a new column **day_type** with factors defining if the day was either in a weekend or if it was a weekday. For this task I will use a conditional mutate:
+
+
+```r
+complete_data <- mutate(complete_data, daytype = factor(ifelse(weekdays(complete_data$date) %in% c("Sunday", "Saturday"), "Weekend", "Weekday")))
+head(complete_data)
+```
+
+```
+##   interval average_steps     steps       date daytype
+## 1        0     1.7169811 1.7169811 2012-10-01 Weekday
+## 2        5     0.3396226 0.3396226 2012-10-01 Weekday
+## 3       10     0.1320755 0.1320755 2012-10-01 Weekday
+## 4       15     0.1509434 0.1509434 2012-10-01 Weekday
+## 5       20     0.0754717 0.0754717 2012-10-01 Weekday
+## 6       25     2.0943396 2.0943396 2012-10-01 Weekday
+```
+
+```r
+table(complete_data$daytype)
+```
+
+```
+## 
+## Weekday Weekend 
+##   12960    4608
+```
+
+Now that we have added the daytype to the complete datas set, we can simply create a new summarized data set for the averaged number of steps per interval. We can use the **ddply** function here again, just adding the daytype variable to split the new data frame:
+
+
+```r
+activity_daytype <- ddply(complete_data, .(interval, daytype), function(x) mean(x$steps))
+names(activity_daytype)[3] <- "average_steps"
+head(activity_daytype)
+```
+
+```
+##   interval daytype average_steps
+## 1        0 Weekday    2.25115304
+## 2        0 Weekend    0.21462264
+## 3        5 Weekday    0.44528302
+## 4        5 Weekend    0.04245283
+## 5       10 Weekday    0.17316562
+## 6       10 Weekend    0.01650943
+```
+
+The activity_daytype data frame has therefore the average steps for all intervals from 0 to 2355 and differentiates between weekdays and weekends. Now it is very easy to create our panel plot for the average number of steps taken during weekdays and weekends. **ggplot2** and its facet wrapping is great for this:
+
+
+```r
+ggplot(activity_daytype, aes(interval, average_steps, color = factor(daytype))) + geom_line() + facet_wrap(~daytype, nrow=2, scales="free") + labs(x = "Time of the day", y = "Average number of steps taken") + scale_x_continuous(breaks = seq(0, 2355, 250)) + scale_color_brewer(palette = "Set1") + theme(legend.position = "none")
+```
+
+![](PA1_template_files/figure-html/unnamed-chunk-21-1.png) 
+
+Now that we have this graph, we can observe that there the pattern is slightly different for the weekend. The number of maximum average steps during the weekends is slightly lower (around 160), while during weekdays it is 206, as seen above. Nevertheless, it seems that during the weekends the person observed walked more than during weekdays, so we can assume that he/she is an office worker. The waking/sleeping cycle seems to be very similar, since the activity starts generally after 5 AM and reaches its peak after 8 AM.
+
+Concluding, we have analysed a data set with many missing values, which caused the values to be slightly lower in the first analysis. After imputing the NA's we found values to be reasonable and separated the observations in weekdays and weekends. There we found a slightly lower number of steps taken during the morning, but the rest of the pattern was very similar.
